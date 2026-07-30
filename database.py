@@ -1,10 +1,11 @@
 import sqlite3
 import pandas as pd
 
+# connect to our database
 def get_connection():
     return sqlite3.connect("fintech.db")
 
-
+# to make csv to sql 
 def load_csv():
     conn = get_connection()
 

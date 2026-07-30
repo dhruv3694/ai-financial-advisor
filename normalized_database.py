@@ -3,7 +3,9 @@ import sqlite3
 import pandas as pd 
 from database import get_connection
 
+# connect to database
 conn=get_connection()
+
 # all actions or queries will be done on database we made
 
 cur = conn.cursor()
