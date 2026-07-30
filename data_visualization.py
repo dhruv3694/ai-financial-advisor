@@ -419,3 +419,99 @@ def average_transaction_value_chart(df):
 
     return apply_layout(fig)
 
+
+
+
+# Relationship Charts
+
+def balance_vs_transactions_chart(df):
+
+    fig = px.scatter(
+        df,
+        x="balance",
+        y="transactions",
+        title="Balance vs Number of Transactions",
+        labels={
+            "balance": "Account Balance",
+            "transactions": "Transactions"
+        },
+        opacity=0.7
+    )
+
+    return apply_layout(fig)
+
+def income_vs_investment_chart(df):
+
+    fig = px.scatter(
+        df,
+        x="annual_income",
+        y="investments",
+        title="Income vs Investment",
+        labels={
+            "annual_income":"Annual Income",
+            "investments":"Investment Amount"
+        },
+        opacity=0.7
+    )
+
+    return apply_layout(fig)
+
+def credit_score_vs_loan_chart(df):
+
+    fig = px.scatter(
+        df,
+        x="credit_score",
+        y="loan_amount",
+        title="Credit Score vs Loan Amount",
+        labels={
+            "credit_score":"Credit Score",
+            "loan_amount":"Loan Amount"
+        }
+    )
+
+    return apply_layout(fig)
+
+def risk_vs_investment_chart(df):
+
+    fig = px.box(
+        df,
+        x="risk_tolerance",
+        y="investments",
+        title="Investment Distribution by Risk Category"
+    )
+
+    return apply_layout(fig)
+
+def customer_segmentation_chart(df):
+
+    fig = px.scatter(
+        df,
+        x="annual_income",
+        y="balance",
+        color="risk_tolerance",
+        title="Customer Segmentation",
+        labels={
+            "annual_income":"Annual Income",
+            "balance":"Account Balance"
+        },
+        opacity=0.7
+    )
+
+    return apply_layout(fig)
+
+def occupation_balance_chart(df):
+
+    fig = px.bar(
+        df,
+        x="occupation",
+        y="average_balance",
+        title="Average Balance by Occupation",
+        text_auto=".2s"
+    )
+
+    fig.update_xaxes(tickangle=-45)
+
+    return apply_layout(fig)
+
+
+
