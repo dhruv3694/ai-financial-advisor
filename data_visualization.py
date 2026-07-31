@@ -1,6 +1,5 @@
 import plotly.express as px
 import plotly.graph_objects as go
-from data_kpis import *
 
 def apply_layout(fig):
     """
@@ -186,19 +185,6 @@ def account_type_distribution_chart(df):
 
     return apply_layout(fig)
 
-def investment_distribution_chart(df):
-
-    fig = px.histogram(
-        df,
-        x="investments",
-        nbins=25,
-        title="Investment Distribution",
-        labels={
-            "investments": "Investment Amount"
-        }
-    )
-
-    return apply_layout(fig)
 
 def investment_distribution_chart(df):
 
@@ -513,5 +499,69 @@ def occupation_balance_chart(df):
 
     return apply_layout(fig)
 
+def risk_distribution_chart(df):
+
+    fig = px.bar(
+        df,
+        x="risk_tolerance",
+        y="customers",
+        title="Risk Tolerance Distribution",
+        text_auto=True
+    )
+
+    return apply_layout(fig)    
+
+def loan_status_distribution(df):
+    fig = px.pie(
+        df,
+        names="loan_status",
+        values="count",
+        title="Loan Status Distribution"
+    )
+
+    fig.update_traces(textposition="inside",
+                      textinfo="percent+label")
+
+    return apply_layout(fig)
+
+def loan_purpose_distribution(df):
+    fig = px.bar(
+        df,
+        x="loan_purpose",
+        y="count",
+        title="Loan Purpose Distribution",
+        text_auto=True
+    )
+
+    fig.update_xaxes(tickangle=-45)
+
+    return apply_layout(fig)
+
+
+def transaction_type_distribution(df):
+    fig = px.bar(
+        df,
+        x="transaction_type",
+        y="count",
+        title="Transaction Type Distribution",
+        text_auto=True
+    )
+
+    fig.update_xaxes(tickangle=-45)
+
+    return apply_layout(fig)
+
+def monthly_transactions(df):
+    fig = px.bar(
+        df,
+        x="month",
+        y="transactions",
+        title="Monthly Transaction Volume",
+        text_auto=True
+    )
+
+    fig.update_xaxes(tickangle=-45)
+
+    return apply_layout(fig)
 
 
