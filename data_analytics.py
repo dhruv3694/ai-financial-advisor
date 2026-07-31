@@ -1,6 +1,16 @@
 from data_functions import execute_scalar,execute_query
 import pandas as pd
 
+def customer_dashboard():
+
+    query = """
+    SELECT *
+    FROM customer_dashboard;
+    """
+
+    return execute_query(query)
+
+
 def total_customers():
     query = """
     SELECT COUNT(*)
@@ -579,3 +589,4 @@ def risk_vs_investment():
     """
 
     return execute_query(query)
+
