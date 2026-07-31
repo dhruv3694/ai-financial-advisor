@@ -311,6 +311,8 @@ def total_high_risk_customers():
 
     return execute_scalar(query)
 
+    
+
 def total_approved_loans(df):
     query = """
     SELECT COUNT(*)

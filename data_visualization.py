@@ -511,22 +511,36 @@ def risk_distribution_chart(df):
 
     return apply_layout(fig)    
 
-def loan_status_distribution(df):
+def loan_status_distribution_chart(df):
+
+    loan_df = (
+        df["loan_status"]
+        .value_counts()
+        .reset_index()
+    )
+
+    loan_df.columns = ["loan_status", "count"]
+
     fig = px.pie(
-        df,
+        loan_df,
         names="loan_status",
         values="count",
         title="Loan Status Distribution"
     )
 
-    fig.update_traces(textposition="inside",
-                      textinfo="percent+label")
-
     return apply_layout(fig)
 
 def loan_purpose_distribution(df):
+
+    # Aggregate data first
+    loan_df = (
+        df.groupby("loan_purpose")
+          .size()
+          .reset_index(name="count")
+    )
+
     fig = px.bar(
-        df,
+        loan_df,
         x="loan_purpose",
         y="count",
         title="Loan Purpose Distribution",

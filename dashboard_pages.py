@@ -1,23 +1,4 @@
-from data_analytics import income_vs_investment
-from data_analytics import customer_segmentation
-from data_analytics import risk_vs_investment
-from data_analytics import occupation_balance
-from data_analytics import transaction_trend
-from data_analytics import top_transaction_customers
-from data_analytics import average_transaction_value
-from data_analytics import repayment_trend
-from data_analytics import interest_vs_loan
-from data_analytics import approval_by_risk
-from data_analytics import loan_amount_distribution
-from data_analytics import interest_rate_distribution
-from data_analytics import deposits_vs_withdrawals
-from data_analytics import investment_distribution
-from data_analytics import account_type_distribution
-from data_analytics import balance_distribution
-from data_analytics import age_distribution
-from data_analytics import region_distribution
-from data_analytics import total_high_risk_customers
-from data_analytics import total_approved_loans
+from data_analytics import *
 import streamlit as st
 
 # ==========================================================
@@ -163,13 +144,13 @@ def render_kpi_section(df):
     with col5:
         create_metric_card(
             title="Approved Loans",
-            value=f"{total_approved_loans():,}"
+            value=f"{len(approved_loans()):,}"
         )
 
     with col6:
         create_metric_card(
             title="High Risk Customers",
-            value=f"{total_high_risk_customers():,}"
+            value=f"{total_high_risk_customers(df):,}"
         )
 
 
@@ -341,7 +322,7 @@ def render_loan_section(df):
     with col2:
 
         fig = loan_purpose_chart(
-            loan_purpose_distribution()
+            loan_purpose_distribution(df)
         )
 
         create_chart_container(fig)
