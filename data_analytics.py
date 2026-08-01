@@ -1,594 +1,468 @@
-from data_functions import execute_scalar,execute_query
+import re
 import pandas as pd
+from data_functions import execute_scalar, execute_query
+
+DATE_PAT = re.compile(r'(\d{4}),\s*(\d{1,2}),\s*(\d{1,2})')
+NUM_PAT = re.compile(r'[-+]?\d*\.\d+|\d+')
+
 
 def customer_dashboard():
-
     query = """
     SELECT *
     FROM customer_dashboard;
     """
+    df = execute_query(query)
+    
+    # Clean numeric columns
+    numeric_cols = [
+        "age", "balance", "deposits", "withdrawals", "transfers",
+        "international_transfers", "investments", "transaction_threshold",
+        "loan_amount", "loan_term", "interest_rate", "income_level"
+    ]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+            
+    return df
 
-    return execute_query(query)
+
+def _get_active_df(df=None):
+    if df is not None:
+        return df
+    return customer_dashboard()
 
 
-def total_customers():
-    query = """
-    SELECT COUNT(*)
-    FROM customer_dashboard;
-    """
-    return execute_scalar(query)
-
-def average_age():
-
-    query = """
-    SELECT AVG(age)
-    FROM customer_dashboard;
-    """
-
-    return round(execute_scalar(query),2)
-
-def average_balance():
-
-    query = """
-    SELECT AVG(balance)
-    FROM customer_dashboard;
-    """
-
-    return round(execute_scalar(query),2)
-
-def total_deposits():
-
-    query = """
-    SELECT SUM(deposits)
-    FROM customer_dashboard;
-    """
-
+def total_customers(df=None):
+    if df is not None:
+        return len(df)
+    query = "SELECT COUNT(*) FROM customer_dashboard;"
     return execute_scalar(query)
 
 
-
-# Risk Distribution
-
-def risk_distribution():
-
-    query = """
-
-    SELECT
-
-    risk_tolerance,
-
-    COUNT(*) AS customers
-
-    FROM customer_dashboard
-
-    GROUP BY risk_tolerance;
-
-    """
-
-    return execute_query(query)
-
-# Occupation Distribution
-
-def occupation_distribution():
-
-    query = """
-
-    SELECT
-
-    occupation,
-
-    COUNT(*) AS customers
-
-    FROM customer_dashboard
-
-    GROUP BY occupation;
-
-    """
-
-    return execute_query(query)
-
-# High Risk Customers
-
-def high_risk_customers():
-
-    query = """
-
-    SELECT *
-
-    FROM customer_dashboard
-
-    WHERE risk_tolerance='High';
-
-    """
-
-    return execute_query(query)
-
-# Approved Loans
-
-def approved_loans():
-
-    query = """
-
-    SELECT *
-
-    FROM customer_dashboard
-
-    WHERE loan_status='Approved';
-
-    """
-
-    return execute_query(query)
-
-# Premium Customers
-
-def customer_segments():
-
-    query = """
-
-    SELECT
-
-    customer_id,
-
-    balance,
-
-    CASE
-
-        WHEN balance >= 100000 THEN 'Premium'
-
-        WHEN balance >= 50000 THEN 'Gold'
-
-        ELSE 'Regular'
-
-    END AS customer_segment
-
-    FROM customer_dashboard;
-
-    """
-
-    return execute_query(query)
+def average_age(df=None):
+    if df is not None:
+        return round(float(df["age"].mean()), 2) if not df.empty and "age" in df else 0.0
+    query = "SELECT AVG(age) FROM customer_dashboard;"
+    val = execute_scalar(query)
+    return round(float(val), 2) if val else 0.0
 
 
-# ✅ NEW: Total Accounts
+def average_balance(df=None):
+    if df is not None:
+        return round(float(df["balance"].mean()), 2) if not df.empty and "balance" in df else 0.0
+    query = "SELECT AVG(balance) FROM customer_dashboard;"
+    val = execute_scalar(query)
+    return round(float(val), 2) if val else 0.0
 
-def total_accounts():
-    """Returns total number of accounts."""
+
+def total_deposits(df=None):
+    if df is not None:
+        return float(df["deposits"].sum()) if not df.empty and "deposits" in df else 0.0
+    query = "SELECT SUM(deposits) FROM customer_dashboard;"
+    val = execute_scalar(query)
+    return float(val) if val else 0.0
+
+
+def risk_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "risk_tolerance" in active_df.columns:
+        res = active_df.groupby("risk_tolerance").size().reset_index(name="customers")
+        return res
+    return pd.DataFrame(columns=["risk_tolerance", "customers"])
+
+
+def occupation_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "occupation" in active_df.columns:
+        res = active_df.groupby("occupation").size().reset_index(name="customers")
+        return res
+    return pd.DataFrame(columns=["occupation", "customers"])
+
+
+def high_risk_customers(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "risk_tolerance" in active_df.columns:
+        return active_df[active_df["risk_tolerance"].astype(str).str.lower() == "high"]
+    return pd.DataFrame()
+
+
+def approved_loans(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "loan_status" in active_df.columns:
+        return active_df[active_df["loan_status"].astype(str).str.lower() == "approved"]
+    return pd.DataFrame()
+
+
+def customer_segments(df=None):
+    active_df = _get_active_df(df)
+    if active_df.empty:
+        return pd.DataFrame(columns=["customer_id", "balance", "customer_segment"])
+    
+    def segment(b):
+        if b >= 100000:
+            return "Premium"
+        elif b >= 50000:
+            return "Gold"
+        return "Regular"
+
+    res = active_df[["customer_id", "balance"]].copy()
+    res["customer_segment"] = res["balance"].apply(segment)
+    return res
+
+
+def total_accounts(df=None):
+    if df is not None:
+        return len(df)
     query = "SELECT COUNT(*) FROM account_dashboard;"
     return execute_scalar(query)
 
 
-# ✅ NEW: Total Loans
-
-def total_loans():
-    """Returns total number of loans."""
+def total_loans(df=None):
+    if df is not None:
+        if "loan_amount" in df.columns:
+            return len(df[df["loan_amount"].notna()])
+        return len(df)
     query = "SELECT COUNT(*) FROM loan_dashboard;"
     return execute_scalar(query)
 
 
-# ✅ NEW: Total Transactions
-
-def total_transactions():
-    """Returns total number of transactions."""
+def total_transactions(df=None):
+    if df is not None:
+        return len(df)
     query = "SELECT COUNT(*) FROM transaction_dashboard;"
     return execute_scalar(query)
 
 
-# ✅ NEW: Average Monthly Income
+def average_monthly_income(df=None):
+    if df is not None:
+        if not df.empty and "income_level" in df.columns:
+            vals = pd.to_numeric(df["income_level"], errors="coerce")
+            return round(float(vals.mean()), 2)
+        return 0.0
+    query = "SELECT AVG(CAST(income_level AS REAL)) FROM customer_dashboard;"
+    val = execute_scalar(query)
+    return round(float(val), 2) if val else 0.0
 
-def average_monthly_income():
-    """Returns average monthly income of customers."""
-    query = "SELECT AVG(monthly_income) FROM customer_dashboard;"
-    return round(execute_scalar(query), 2)
 
-
-# ✅ NEW: Active Loans
-
-def active_loans():
-    """Returns count of active loans."""
-    query = "SELECT COUNT(*) FROM loan_dashboard WHERE loan_status='Approved';"
+def active_loans(df=None):
+    if df is not None:
+        if not df.empty and "loan_status" in df.columns:
+            return len(df[df["loan_status"].astype(str).str.lower() == "approved"])
+        return 0
+    query = "SELECT COUNT(*) FROM loan_dashboard WHERE LOWER(loan_status)='approved';"
     return execute_scalar(query)
 
 
-# ✅ NEW: Average Loan Amount
-
-def average_loan_amount():
-    """Returns average loan amount."""
+def average_loan_amount(df=None):
+    if df is not None:
+        if not df.empty and "loan_amount" in df.columns:
+            vals = pd.to_numeric(df["loan_amount"], errors="coerce")
+            return round(float(vals.mean()), 2)
+        return 0.0
     query = "SELECT AVG(loan_amount) FROM loan_dashboard;"
-    return round(execute_scalar(query), 2)
+    val = execute_scalar(query)
+    return round(float(val), 2) if val else 0.0
 
 
-# ✅ NEW: Premium Customers (Balance >= 100k)
-
-def premium_customers():
-    """Returns count of premium customers."""
+def premium_customers(df=None):
+    if df is not None:
+        if not df.empty and "balance" in df.columns:
+            return len(df[df["balance"] >= 100000])
+        return 0
     query = "SELECT COUNT(*) FROM customer_dashboard WHERE balance >= 100000;"
     return execute_scalar(query)
 
 
-# ✅ NEW: High Balance Customers (Balance >= 50k)
-
-def high_balance_customers():
-    """Returns count of customers with >= 50k balance."""
+def high_balance_customers(df=None):
+    if df is not None:
+        if not df.empty and "balance" in df.columns:
+            return len(df[df["balance"] >= 50000])
+        return 0
     query = "SELECT COUNT(*) FROM customer_dashboard WHERE balance >= 50000;"
     return execute_scalar(query)
 
 
-# ✅ NEW: Total Loan Portfolio
+def total_loan_portfolio(df=None):
+    if df is not None:
+        if not df.empty and "loan_amount" in df.columns and "loan_status" in df.columns:
+            app = df[df["loan_status"].astype(str).str.lower() == "approved"]
+            return float(app["loan_amount"].sum())
+        return 0.0
+    query = "SELECT SUM(loan_amount) FROM loan_dashboard WHERE LOWER(loan_status)='approved';"
+    val = execute_scalar(query)
+    return float(val) if val else 0.0
 
-def total_loan_portfolio():
-    """Returns total loan portfolio amount."""
-    query = "SELECT SUM(loan_amount) FROM loan_dashboard WHERE loan_status='Approved';"
+
+def account_type_counts(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "account_type" in active_df.columns:
+        return active_df.groupby("account_type").size().reset_index(name="count")
+    return pd.DataFrame(columns=["account_type", "count"])
+
+
+def loan_status_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "loan_status" in active_df.columns:
+        return active_df.groupby("loan_status").size().reset_index(name="count")
+    return pd.DataFrame(columns=["loan_status", "count"])
+
+
+def risk_tolerance_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "risk_tolerance" in active_df.columns:
+        return active_df.groupby("risk_tolerance").size().reset_index(name="count")
+    return pd.DataFrame(columns=["risk_tolerance", "count"])
+
+
+def customers_per_region(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "region" in active_df.columns:
+        return active_df.groupby("region").size().reset_index(name="count")
+    return pd.DataFrame(columns=["region", "count"])
+
+
+def top_occupations(df=None, limit=5):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "occupation" in active_df.columns:
+        res = (
+            active_df.groupby("occupation")
+            .size()
+            .reset_index(name="count")
+            .sort_values("count", ascending=False)
+            .head(limit)
+        )
+        return res
+    return pd.DataFrame(columns=["occupation", "count"])
+
+
+def total_approved_loans(df=None):
+    if df is not None:
+        if not df.empty and "loan_status" in df.columns:
+            return len(df[df["loan_status"].astype(str).str.lower() == "approved"])
+        return 0
+    query = "SELECT COUNT(*) FROM customer_dashboard WHERE LOWER(loan_status)='approved';"
     return execute_scalar(query)
 
 
-# ✅ NEW: Account Types Count
-
-def account_type_counts():
-    """Returns count of each account type."""
-    query = """
-    SELECT
-        account_type,
-        COUNT(*) AS count
-    FROM account_dashboard
-    GROUP BY account_type;
-    """
-    return execute_query(query)
-
-
-# ✅ NEW: Loan Status Distribution
-
-def loan_status_distribution():
-    """Returns distribution of loan statuses."""
-    query = """
-    SELECT
-        loan_status,
-        COUNT(*) AS count
-    FROM loan_dashboard
-    GROUP BY loan_status;
-    """
-    return execute_query(query)
-
-
-# ✅ NEW: Risk Tolerance Distribution
-
-def risk_tolerance_distribution():
-    """Returns distribution of risk tolerances."""
-    query = """
-    SELECT
-        risk_tolerance,
-        COUNT(*) AS count
-    FROM customer_dashboard
-    GROUP BY risk_tolerance;
-    """
-    return execute_query(query)
-
-
-# ✅ NEW: Customers per Region
-
-def customers_per_region():
-    """Returns number of customers per region."""
-    query = """
-    SELECT
-        region,
-        COUNT(*) AS count
-    FROM customer_dashboard
-    GROUP BY region;
-    """
-    return execute_query(query)
-
-
-# ✅ NEW: Top Occupations
-
-def top_occupations(limit=5):
-    """Returns top occupations."""
-    query = f"""
-    SELECT
-        occupation,
-        COUNT(*) AS count
-    FROM customer_dashboard
-    GROUP BY occupation
-    ORDER BY count DESC
-    LIMIT {limit};
-    """
-    return execute_query(query)
-    
-def total_approved_loans():
-
-    query = """
-    SELECT COUNT(*)
-    FROM customer_dashboard
-    WHERE loan_status='Approved';
-    """
-
+def total_high_risk_customers(df=None):
+    if df is not None:
+        if not df.empty and "risk_tolerance" in df.columns:
+            return len(df[df["risk_tolerance"].astype(str).str.lower() == "high"])
+        return 0
+    query = "SELECT COUNT(*) FROM customer_dashboard WHERE LOWER(risk_tolerance)='high';"
     return execute_scalar(query)
 
-def total_high_risk_customers():
 
-    query = """
-    SELECT COUNT(*)
-    FROM customer_dashboard
-    WHERE risk_tolerance='High';
-    """
+def age_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "age" in active_df.columns:
+        return active_df[["age"]].dropna()
+    return pd.DataFrame(columns=["age"])
 
-    return execute_scalar(query)
 
-    
+def region_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "region" in active_df.columns:
+        return active_df.groupby("region").size().reset_index(name="customers")
+    return pd.DataFrame(columns=["region", "customers"])
 
-def total_approved_loans(df):
-    query = """
-    SELECT COUNT(*)
-    FROM customer_dashboard
-    WHERE loan_status='Approved';
-    """
-    return execute_scalar(query)
 
-def total_high_risk_customers(df):
-    query = """
-    SELECT COUNT(*)
-    FROM customer_dashboard
-    WHERE risk_tolerance='High';
-    """
-    return execute_scalar(query)
+def balance_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "balance" in active_df.columns:
+        return active_df[["balance"]].dropna()
+    return pd.DataFrame(columns=["balance"])
 
-def age_distribution():
 
-    query = """
-    SELECT age
-    FROM customer_dashboard;
-    """
+def account_type_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "account_type" in active_df.columns:
+        return active_df.groupby("account_type").size().reset_index(name="customers")
+    return pd.DataFrame(columns=["account_type", "customers"])
 
-    return execute_query(query)
 
-def region_distribution():
+def investment_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "investments" in active_df.columns:
+        return active_df[["investments"]].dropna()
+    return pd.DataFrame(columns=["investments"])
 
-    query = """
 
-    SELECT
-        region,
-        COUNT(*) AS customers
-    FROM customer_dashboard
-    GROUP BY region;
-
-    """
-
-    return execute_query(query)
-
-def balance_distribution():
-
-    query = """
-    SELECT balance
-    FROM customer_dashboard;
-    """
-
-    return execute_query(query)
-
-def account_type_distribution():
-
-    query = """
-    SELECT
-        account_type,
-        COUNT(*) AS customers
-    FROM customer_dashboard
-    GROUP BY account_type;
-    """
-
-    return execute_query(query)
-
-def investment_distribution():
-
-    query = """
-    SELECT investments
-    FROM customer_dashboard;
-    """
-
-    return execute_query(query)
-
-def deposits_vs_withdrawals():
-
-    query = """
-    SELECT
-        SUM(deposits) AS deposits,
-        SUM(withdrawals) AS withdrawals
-    FROM customer_dashboard;
-    """
-
-    df = execute_query(query)
-
+def deposits_vs_withdrawals(df=None):
+    active_df = _get_active_df(df)
+    dep = active_df["deposits"].sum() if "deposits" in active_df.columns else 0.0
+    wth = active_df["withdrawals"].sum() if "withdrawals" in active_df.columns else 0.0
     return pd.DataFrame({
         "Metric": ["Deposits", "Withdrawals"],
-        "Amount": [
-            df.loc[0, "deposits"],
-            df.loc[0, "withdrawals"]
-        ]
+        "Amount": [float(dep), float(wth)]
     })
 
-def loan_status_distribution():
 
-    query = """
-    SELECT
-        loan_status,
-        COUNT(*) AS count
-    FROM customer_dashboard
-    GROUP BY loan_status;
-    """
+def loan_purpose_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "loan_purpose" in active_df.columns:
+        return active_df.groupby("loan_purpose").size().reset_index(name="count")
+    return pd.DataFrame(columns=["loan_purpose", "count"])
 
-    return execute_query(query)
 
-def loan_purpose_distribution():
+def interest_rate_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "interest_rate" in active_df.columns:
+        return active_df[["interest_rate"]].dropna()
+    return pd.DataFrame(columns=["interest_rate"])
 
-    query = """
-    SELECT
-        loan_purpose,
-        COUNT(*) AS count
-    FROM customer_dashboard
-    GROUP BY loan_purpose;
-    """
 
-    return execute_query(query)
+def loan_amount_distribution(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "loan_amount" in active_df.columns:
+        return active_df[["loan_amount"]].dropna()
+    return pd.DataFrame(columns=["loan_amount"])
 
-def interest_rate_distribution():
 
-    query = """
-    SELECT interest_rate
-    FROM customer_dashboard;
-    """
+def approval_by_risk(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "risk_tolerance" in active_df.columns and "loan_status" in active_df.columns:
+        return (
+            active_df.groupby(["risk_tolerance", "loan_status"])
+            .size()
+            .reset_index(name="customers")
+        )
+    return pd.DataFrame(columns=["risk_tolerance", "loan_status", "customers"])
 
-    return execute_query(query)
 
-def loan_amount_distribution():
+def interest_vs_loan(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "loan_amount" in active_df.columns and "interest_rate" in active_df.columns:
+        return active_df[["loan_amount", "interest_rate"]].dropna()
+    return pd.DataFrame(columns=["loan_amount", "interest_rate"])
 
-    query = """
-    SELECT loan_amount
-    FROM customer_dashboard;
-    """
 
-    return execute_query(query)
+def _parse_time_series(df_source):
+    records = []
+    for idx, row in df_source.iterrows():
+        c_id = str(row.get("customer_id", f"Customer_{idx}"))
+        dates_raw = str(row.get("dates", ""))
+        trans_raw = str(row.get("transactions", ""))
+        rep_raw = str(row.get("repayments", ""))
 
-def approval_by_risk():
+        d_matches = DATE_PAT.findall(dates_raw)
+        d_list = [f"{y}-{int(m):02d}-{int(d):02d}" for y, m, d in d_matches]
+        
+        t_list = [float(x) for x in NUM_PAT.findall(trans_raw)]
+        r_list = [float(x) for x in NUM_PAT.findall(rep_raw)]
 
-    query = """
-    SELECT
-        risk_tolerance,
-        loan_status,
-        COUNT(*) AS customers
-    FROM customer_dashboard
-    GROUP BY
-        risk_tolerance,
-        loan_status;
-    """
+        n = min(len(d_list), len(t_list))
+        for i in range(n):
+            rep_val = r_list[i] if i < len(r_list) else 0.0
+            records.append({
+                "customer_id": c_id,
+                "transaction_date": d_list[i],
+                "transactions": t_list[i],
+                "repayments": rep_val
+            })
+    if not records:
+        return pd.DataFrame(columns=["customer_id", "transaction_date", "transactions", "repayments"])
+    return pd.DataFrame(records)
 
-    return execute_query(query)
 
-def interest_vs_loan():
+def transaction_trend(df=None):
+    active_df = _get_active_df(df)
+    ts_df = _parse_time_series(active_df)
+    if not ts_df.empty:
+        trend = ts_df.groupby("transaction_date")["transactions"].sum().reset_index()
+        trend.columns = ["transaction_date", "transactions"]
+        return trend.sort_values("transaction_date")
+    return pd.DataFrame(columns=["transaction_date", "transactions"])
 
-    query = """
-    SELECT
-        loan_amount,
-        interest_rate
-    FROM customer_dashboard;
-    """
 
-    return execute_query(query)
+def monthly_transactions(df=None):
+    active_df = _get_active_df(df)
+    ts_df = _parse_time_series(active_df)
+    if not ts_df.empty:
+        ts_df["month"] = pd.to_datetime(ts_df["transaction_date"], errors="coerce").dt.to_period("M").astype(str)
+        monthly = ts_df.groupby("month")["transactions"].sum().reset_index()
+        monthly.columns = ["month", "transactions"]
+        return monthly.sort_values("month")
+    return pd.DataFrame(columns=["month", "transactions"])
 
-def transaction_trend():
 
-    query = """
-    SELECT
-        transaction_date,
-        SUM(transaction_amount) AS total_transaction
-    FROM customer_dashboard
-    GROUP BY transaction_date
-    ORDER BY transaction_date;
-    """
+def transaction_type_distribution(df=None):
+    active_df = _get_active_df(df)
+    cols = ["deposits", "withdrawals", "transfers", "international_transfers", "investments"]
+    labels = ["Deposits", "Withdrawals", "Transfers", "Intl Transfers", "Investments"]
+    counts = []
+    for col in cols:
+        if col in active_df.columns:
+            counts.append(int((active_df[col] > 0).sum()))
+        else:
+            counts.append(0)
+    return pd.DataFrame({
+        "transaction_type": labels,
+        "count": counts
+    })
 
-    return execute_query(query)
 
-def monthly_transactions():
+def average_transaction_value(df=None):
+    active_df = _get_active_df(df)
+    cols = ["deposits", "withdrawals", "transfers", "international_transfers", "investments"]
+    labels = ["Deposits", "Withdrawals", "Transfers", "Intl Transfers", "Investments"]
+    avg_vals = []
+    for col in cols:
+        if col in active_df.columns:
+            val = float(active_df[col].mean()) if not active_df.empty else 0.0
+            avg_vals.append(round(val, 2))
+        else:
+            avg_vals.append(0.0)
+    return pd.DataFrame({
+        "transaction_type": labels,
+        "average_value": avg_vals
+    })
 
-    query = """
-    SELECT
-        strftime('%Y-%m', transaction_date) AS month,
-        SUM(transaction_amount) AS total_transaction
-    FROM customer_dashboard
-    GROUP BY month
-    ORDER BY month;
-    """
 
-    return execute_query(query)
+def repayment_trend(df=None):
+    active_df = _get_active_df(df)
+    ts_df = _parse_time_series(active_df)
+    if not ts_df.empty:
+        ts_df["month"] = pd.to_datetime(ts_df["transaction_date"], errors="coerce").dt.to_period("M").astype(str)
+        rep = ts_df.groupby("month")["repayments"].sum().reset_index()
+        rep.columns = ["month", "repayments"]
+        return rep.sort_values("month")
+    return pd.DataFrame(columns=["month", "repayments"])
 
-def transaction_type_distribution():
 
-    query = """
-    SELECT
-        transaction_type,
-        COUNT(*) AS count
-    FROM customer_dashboard
-    GROUP BY transaction_type;
-    """
+def top_transaction_customers(df=None):
+    active_df = _get_active_df(df)
+    ts_df = _parse_time_series(active_df)
+    if not ts_df.empty:
+        top = ts_df.groupby("customer_id")["transactions"].count().reset_index(name="transactions")
+        top["customer_name"] = top["customer_id"].apply(lambda x: f"Cust-{str(x)[:6]}")
+        return top.sort_values("transactions", ascending=False).head(10)
+    return pd.DataFrame(columns=["customer_id", "customer_name", "transactions"])
 
-    return execute_query(query)
 
-def average_transaction_value():
+def income_vs_investment(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "income_level" in active_df.columns and "investments" in active_df.columns:
+        return active_df[["income_level", "investments"]].dropna()
+    return pd.DataFrame(columns=["income_level", "investments"])
 
-    query = """
-    SELECT
-        transaction_type,
-        AVG(transaction_amount) AS average_value
-    FROM customer_dashboard
-    GROUP BY transaction_type;
-    """
 
-    return execute_query(query)
+def customer_segmentation(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "income_level" in active_df.columns and "balance" in active_df.columns and "risk_tolerance" in active_df.columns:
+        return active_df[["income_level", "balance", "risk_tolerance"]].dropna()
+    return pd.DataFrame(columns=["income_level", "balance", "risk_tolerance"])
 
-def repayment_trend():
 
-    query = """
-    SELECT
-        transaction_date,
-        SUM(loan_repayment) AS repayment
-    FROM customer_dashboard
-    GROUP BY transaction_date
-    ORDER BY transaction_date;
-    """
+def occupation_balance(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "occupation" in active_df.columns and "balance" in active_df.columns:
+        return active_df.groupby("occupation")["balance"].mean().reset_index(name="average_balance")
+    return pd.DataFrame(columns=["occupation", "average_balance"])
 
-    return execute_query(query)
 
-def top_transaction_customers():
-
-    query = """
-    SELECT
-        customer_id,
-        SUM(transaction_amount) AS total_transaction
-    FROM customer_dashboard
-    GROUP BY customer_id
-    ORDER BY total_transaction DESC
-    LIMIT 10;
-    """
-
-    return execute_query(query)
-
-def income_vs_investment():
-
-    query = """
-    SELECT
-        income_level,
-        investments
-    FROM customer_dashboard;
-    """
-
-    return execute_query(query)
-
-def customer_segmentation():
-
-    query = """
-    SELECT
-        income_level,
-        balance,
-        risk_tolerance
-    FROM customer_dashboard;
-    """
-
-    return execute_query(query)
-
-def occupation_balance():
-
-    query = """
-    SELECT
-        occupation,
-        AVG(balance) AS average_balance
-    FROM customer_dashboard
-    GROUP BY occupation;
-    """
-
-    return execute_query(query)
-
-def risk_vs_investment():
-
-    query = """
-    SELECT
-        risk_tolerance,
-        investments
-    FROM customer_dashboard;
-    """
-
-    return execute_query(query)
-
+def risk_vs_investment(df=None):
+    active_df = _get_active_df(df)
+    if not active_df.empty and "risk_tolerance" in active_df.columns and "investments" in active_df.columns:
+        return active_df[["risk_tolerance", "investments"]].dropna()
+    return pd.DataFrame(columns=["risk_tolerance", "investments"])

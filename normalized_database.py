@@ -104,7 +104,7 @@ CREATE TABLE Account_Activity(
 
 account_id TEXT PRIMARY KEY,
 
-customer_id INTEGER,
+customer_id TEXT,
 
 balance REAL,
 
